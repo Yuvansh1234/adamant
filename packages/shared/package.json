@@ -1,0 +1,16 @@
+{
+  "name": "@adamant/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "echo \"@adamant/shared is source-only; consumed by bundlers\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

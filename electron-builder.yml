@@ -1,0 +1,44 @@
+appId: dev.adamant.app
+productName: Adamant
+copyright: Copyright © 2026 Adamant
+
+directories:
+  output: release
+  buildResources: build
+
+# Every dependency is bundled by Vite, so only the built output ships.
+files:
+  - package.json
+  - packages/main/dist/**/*
+  - packages/preload/dist/**/*
+  - packages/renderer/dist/**/*
+
+asar: true
+npmRebuild: false
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]

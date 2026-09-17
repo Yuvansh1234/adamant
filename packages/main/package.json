@@ -1,0 +1,14 @@
+{
+  "name": "@adamant/main",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@adamant/shared": "workspace:*"
+  }
+}
