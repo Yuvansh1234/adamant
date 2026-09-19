@@ -5,7 +5,7 @@
   "description": "Self-healing codebase AI agent for developers",
   "license": "MIT",
   "author": "Aditya Vaish",
-  "main": "packages/main/dist/index.js",
+  "main": "electron/main/dist/index.js",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -20,7 +20,9 @@
     "start": "pnpm build && electron .",
     "package": "pnpm build && electron-builder --config electron-builder.yml",
     "package:dir": "pnpm build && electron-builder --config electron-builder.yml --dir",
-    "clean": "rm -rf release packages/*/dist packages/*/*.tsbuildinfo"
+    "clean": "rm -rf release electron/*/dist electron/*/*.tsbuildinfo",
+    "skills:sync": "node scripts/sync-skills.mjs",
+    "skills:check": "node scripts/sync-skills.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

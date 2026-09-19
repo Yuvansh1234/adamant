@@ -9,9 +9,9 @@ directories:
 # Every dependency is bundled by Vite, so only the built output ships.
 files:
   - package.json
-  - packages/main/dist/**/*
-  - packages/preload/dist/**/*
-  - packages/renderer/dist/**/*
+  - electron/main/dist/**/*
+  - electron/preload/dist/**/*
+  - electron/adamant/dist/**/*
 
 asar: true
 npmRebuild: false

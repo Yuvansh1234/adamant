@@ -56,9 +56,9 @@ models or Docker. Workers pull jobs with `FOR UPDATE SKIP LOCKED`.
 
 ## Identity
 
-| Principal | Purpose |
-| --- | --- |
-| User OAuth session | Who clicked heal / HITL |
+| Principal               | Purpose                         |
+| ----------------------- | ------------------------------- |
+| User OAuth session      | Who clicked heal / HITL         |
 | GitHub App installation | What the agent may do on a repo |
 
 A run is allowed only if the session user can access a repo bound to that
@@ -101,12 +101,12 @@ anything outside the bound `repo_id`.
 
 Used to **read and wait**, not to replace the sandbox.
 
-| Tool | Use |
-| --- | --- |
-| `list_workflow_runs` | CI on the agent branch / PR |
-| `get_workflow_run` / jobs / logs | Diagnose a red build |
-| `rerun_failed_jobs` | After a patch |
-| `workflow_dispatch` | Only workflows tagged `adamant-allowed` in repo settings we store |
+| Tool                             | Use                                                               |
+| -------------------------------- | ----------------------------------------------------------------- |
+| `list_workflow_runs`             | CI on the agent branch / PR                                       |
+| `get_workflow_run` / jobs / logs | Diagnose a red build                                              |
+| `rerun_failed_jobs`              | After a patch                                                     |
+| `workflow_dispatch`              | Only workflows tagged `adamant-allowed` in repo settings we store |
 
 Actions is CI evidence. Local sandbox is still required before HITL: GitHub
 runners are not under our isolation policy.
@@ -302,14 +302,34 @@ Host clones, strips remotes and credentials, then starts the container.
 
 ## Failure
 
-| Case | What happens |
-| --- | --- |
-| Duplicate webhook | `delivery_id` PK, ACK, no second run |
-| Worker death | lock TTL; resume checkpoint |
-| git/API 403 | fail the run; do not retry from the sandbox |
-| Actions timeout | treat as fail evidence; sandbox still required |
-| HITL TTL | `aborted`; leave the agent branch |
-| Optimistic HITL | `runs.version` mismatch → 409 |
+| Case              | What happens                                   |
+| ----------------- | ---------------------------------------------- |
+| Duplicate webhook | `delivery_id` PK, ACK, no second run           |
+| Worker death      | lock TTL; resume checkpoint                    |
+| git/API 403       | fail the run; do not retry from the sandbox    |
+| Actions timeout   | treat as fail evidence; sandbox still required |
+| HITL TTL          | `aborted`; leave the agent branch              |
+| Optimistic HITL   | `runs.version` mismatch → 409                  |
+
+## Planned changes
+
+Agreed but not yet folded into the diagrams above. Details in
+[tech-stack.md](tech-stack.md), [performance.md](performance.md) and [product.md](product.md).
+
+- **Stack:** TypeScript throughout; Hono for the API, `graphile-worker` for jobs (it replaces the
+  `jobs` table), Drizzle for Postgres, LangGraph.js for the graph.
+- **Graph:** add `triage` and `reproduce` before `diagnose`. Flaky failures get
+  `rerun_failed_jobs` and a report, not a patch. Infra and missing-secret failures get a report.
+- **Push after the sandbox passes.** `patch` commits locally; the agent branch is pushed once,
+  after a passing `sandbox_results` row, instead of on every attempt.
+- **Failure fingerprints:** runs with the same fingerprint are grouped so one broken default branch
+  doesn't start a run per PR.
+- **Local mode:** the desktop app runs the agent package against the developer's checkout. Model
+  calls go through the API, so no credentials are stored in Electron.
+- **Approval:** in-app approval becomes optional per repo when GitHub already requires a review;
+  `/adamant approve` as a PR comment is accepted.
+- **Timings:** every graph step and sandbox job records `started_at` / `ended_at` on
+  `audit_events`.
 
 ## Ruleset
 

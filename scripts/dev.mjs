@@ -12,15 +12,15 @@ import electronPath from 'electron'
 import { build, createServer } from 'vite'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const configFor = (pkg) =>
-  fileURLToPath(new URL(`../packages/${pkg}/vite.config.mts`, import.meta.url))
+const configFor = (dir) =>
+  fileURLToPath(new URL(`../electron/${dir}/vite.config.mts`, import.meta.url))
 
 /** @type {import('node:child_process').ChildProcess | null} */
 let electronProcess = null
 let shuttingDown = false
 let restartTimer = null
 
-const server = await createServer({ configFile: configFor('renderer') })
+const server = await createServer({ configFile: configFor('adamant') })
 await server.listen()
 
 const devServerUrl = server.resolvedUrls?.local?.[0]

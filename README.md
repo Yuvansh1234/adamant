@@ -33,16 +33,27 @@ pnpm install
 ## Layout
 
 ```
-packages/
+electron/
   shared/    @adamant/shared   — the IPC contract; imported by all three processes
   main/      @adamant/main     — Electron main process (windows, lifecycle, IPC handlers)
   preload/   @adamant/preload  — the contextBridge; the only main <-> renderer seam
-  renderer/  @adamant/renderer — React 19 UI, built by Vite
+  adamant/   @adamant/renderer — React 19 UI, built by Vite
 scripts/dev.mjs                — dev orchestrator (dev server, watchers, Electron restarts)
 ```
 
-The planned control plane (API + workers, PostgreSQL, GitHub App, sealed
-sandbox, HITL) is documented in [docs/architecture.md](docs/architecture.md).
+## Docs
+
+| Doc                                                          | Covers                                                   |
+| ------------------------------------------------------------ | -------------------------------------------------------- |
+| [docs/product.md](docs/product.md)                           | What we're building, trust features, roadmap             |
+| [docs/backend-architecture.md](docs/backend-architecture.md) | Control plane, GitHub App, sandbox, approval, run states |
+| [docs/tech-stack.md](docs/tech-stack.md)                     | Stack decisions and planned backend layout               |
+| [docs/performance.md](docs/performance.md)                   | Local mode, fast cloud loop, targets, measurement        |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                           | Branches, commits, PRs, review and merge                 |
+| [AGENTS.md](AGENTS.md)                                       | Instructions for Claude Code, Cursor and Codex           |
+
+Coding agents read `AGENTS.md` (Claude Code via `CLAUDE.md`) and the skills in `.agents/skills/`.
+After editing a skill, run `pnpm skills:sync` to update the Claude Code copy in `.claude/skills/`.
 
 ### How the processes fit together
 

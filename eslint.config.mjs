@@ -13,8 +13,8 @@ export default tseslint.config(
   // Main and preload run in Node/Electron.
   {
     files: [
-      'packages/main/**/*.ts',
-      'packages/preload/**/*.ts',
+      'electron/main/**/*.ts',
+      'electron/preload/**/*.ts',
       'scripts/**/*.mjs',
       '**/vite.config.mts',
     ],
@@ -25,7 +25,7 @@ export default tseslint.config(
 
   // The renderer is a browser document.
   {
-    files: ['packages/renderer/**/*.{ts,tsx}'],
+    files: ['electron/adamant/**/*.{ts,tsx}'],
     languageOptions: {
       globals: { ...globals.browser },
     },

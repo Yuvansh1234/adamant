@@ -5,7 +5,7 @@ import { BrowserWindow } from 'electron'
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 
 const preloadScript = join(__dirname, '../../preload/dist/index.js')
-const rendererEntry = join(__dirname, '../../renderer/dist/index.html')
+const rendererEntry = join(__dirname, '../../adamant/dist/index.html')
 
 export function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({

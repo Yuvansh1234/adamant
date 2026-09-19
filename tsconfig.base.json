@@ -16,7 +16,7 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "paths": {
-      "@adamant/shared": ["./packages/shared/src/index.ts"]
+      "@adamant/shared": ["./electron/shared/src/index.ts"]
     }
   }
 }

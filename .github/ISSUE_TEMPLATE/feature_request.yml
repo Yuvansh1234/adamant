@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest something Adamant should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What's hard or impossible today, and who runs into it? Describe the problem before the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Desktop app
+        - API
+        - Worker / agent
+        - Sandbox
+        - Build / tooling
+        - Docs
+    validations:
+      required: true
+  - type: checkboxes
+    id: roadmap
+    attributes:
+      label: Roadmap
+      options:
+        - label: I've checked docs/product.md, and this fits the current phase or says why it should jump ahead
