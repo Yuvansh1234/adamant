@@ -41,6 +41,9 @@ packages/
 scripts/dev.mjs                — dev orchestrator (dev server, watchers, Electron restarts)
 ```
 
+The planned control plane (API + workers, PostgreSQL, GitHub App, sealed
+sandbox, HITL) is documented in [docs/architecture.md](docs/architecture.md).
+
 ### How the processes fit together
 
 `shared` exports the channel names and payload types. `main` registers handlers against
