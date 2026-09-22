@@ -10,11 +10,12 @@ export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommended,
 
-  // Main and preload run in Node/Electron.
+  // Main, preload and the server run in Node/Electron.
   {
     files: [
       'electron/main/**/*.ts',
       'electron/preload/**/*.ts',
+      'server/**/*.ts',
       'scripts/**/*.mjs',
       '**/vite.config.mts',
     ],
