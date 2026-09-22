@@ -4,6 +4,7 @@
     { "path": "./electron/shared" },
     { "path": "./electron/main" },
     { "path": "./electron/preload" },
-    { "path": "./electron/adamant" }
+    { "path": "./electron/adamant" },
+    { "path": "./server/api" }
   ]
 }
