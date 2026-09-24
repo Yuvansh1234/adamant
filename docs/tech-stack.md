@@ -1,36 +1,30 @@
 # Tech stack
 
-The backend is planned, not built yet. This records what we chose and why, so the team doesn't
-re-argue it. The design it implements is [backend-architecture.md](backend-architecture.md).
+What we chose and why. Phase 1 work: [phase-1-tasks.md](phase-1-tasks.md). Design:
+[backend-architecture.md](backend-architecture.md).
+
+Hono `/health` and LangGraph packages in `core/agent` already exist. The
+GitHub App, worker, CLI, and heal path do not.
 
 ## TypeScript everywhere
 
-The desktop app, API, workers and agent are all TypeScript in one pnpm workspace.
+CLI, API, workers, and agent share one pnpm workspace and one CI job.
+Schemas live in `@adamant/contract` and are imported, not copied.
 
-- **Types shared from app to server.** Renaming an IPC channel is already a compile error in every
-  Electron process. A TypeScript backend extends that to the HTTP API: schemas are written once and
-  imported by the API, the workers and the app.
-- **The backend is mostly plumbing, not machine learning.** Adamant calls a hosted model. The hard
-  parts are webhooks, GitHub App auth, git, job queues and containers, all well served on Node.
-  GitHub's own SDK, Octokit, is TypeScript.
-- **One toolchain.** One ESLint/Prettier/tsc setup and one CI job, so anyone can work on any part.
-
-The cost: LangGraph's Python version gets features and docs first. Our graph is small and only
-needs the core (state graph, interrupts, Postgres checkpoints), which LangGraph.js has. If it gets
-in the way, we run the graph as our own state machine on `runs.status`, which is already designed.
-
-We would reconsider only if most of the team were much stronger in Python than TypeScript.
+LangGraph.js has the pieces we need (state graph, interrupts, Postgres
+checkpoints). If it gets in the way, drive the same loop from `runs.status`.
 
 ## Components
 
 | Piece                 | Choice                                                              | Notes                                                                                          |
 | --------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| HTTP API              | [Hono](https://hono.dev) on `@hono/node-server`                     | Typed client for the app; raw body for webhooks; built-in SSE                                  |
+| HTTP API              | [Hono](https://hono.dev) on `@hono/node-server`                     | Webhooks + CLI (`GET /runs`, `/activity`); raw body for HMAC                                   |
+| CLI                   | `@adamant/cli` on Node                                              | Monitor only; HTTPS to the hosted API; no model, no GitHub token                               |
 | Validation / contract | `zod`, via `@hono/zod-validator`                                    | One schema package shared by API, workers and app                                              |
 | GitHub App + webhooks | `@octokit/app`, `@octokit/webhooks`                                 | Installation tokens minted per call; webhook signature checks                                  |
 | Database              | PostgreSQL with Drizzle ORM                                         | Migrations checked in                                                                          |
 | Job queue             | `graphile-worker`                                                   | Postgres `SKIP LOCKED` plus `LISTEN/NOTIFY` for instant pickup                                 |
-| Agent graph           | `@langchain/langgraph` + `@langchain/langgraph-checkpoint-postgres` | `thread_id = run_id`; `interrupt()` for the approval step                                      |
+| Agent graph           | `@langchain/langgraph` + `@langchain/langgraph-checkpoint-postgres` | `thread_id = run_id`; Phase 1 does not `interrupt()` for a human                               |
 | LLM                   | [`openai`](https://www.npmjs.com/package/openai)                    | `OPENAI_API_KEY`; model and effort per step — see [performance.md](performance.md#model-calls) |
 | Sandbox               | `dockerode`                                                         | One container per job, as in the architecture doc                                              |
 
@@ -39,49 +33,37 @@ architecture doc. Run state stays in `runs`.
 
 ### Why Hono
 
-Its RPC mode lets the Electron app import the API's _type_ and call it like a function. A changed
-route or payload stops the app compiling, with no code generation:
+Small, typed, reads the raw body (webhook HMAC), easy SSE later. The API only
+auths and enqueues. Workers do the real work.
 
 ```ts
-// server/api
 const app = new Hono().post('/runs', zValidator('json', CreateRunSchema), async (c) => {
   const run = await createRun(c.req.valid('json'))
   return c.json({ runId: run.id }, 202)
 })
-export type ApiType = typeof app
-
-// electron/main
-const api = hc<ApiType>(API_URL)
-const res = await api.runs.$post({ json: { repoId, prNumber } })
 ```
 
-It also reads the raw request body (needed to verify GitHub webhook signatures), streams
-Server-Sent Events for the live run view, and is small enough to learn quickly.
+Fallback: Fastify. Skip NestJS and Express.
 
-**Fastify** is the fallback if we need its plugin ecosystem (auth, rate limiting, OpenAPI docs).
-We skip **NestJS** (too heavy for a thin API) and **Express** (older, weaker TypeScript support).
+Phase 1 clients: GitHub webhooks and `@adamant/cli` against the hosted
+API. Electron can import `typeof app` later via `hc<ApiType>`.
 
-The framework does not affect how fast Adamant fixes things: the API only checks auth, accepts
-commands and acknowledges webhooks. The real work happens in the workers.
-
-## Planned layout
+## Layout
 
 ```
-electron/          existing desktop app (shared, main, preload, adamant)
+electron/           desktop shell (later Heal UI)
 server/
-  api/     @adamant/api       Hono: login, webhooks, commands, live updates
-  worker/  @adamant/worker    graphile-worker: graph steps and sandbox jobs
+  api/      @adamant/api       Hono: webhooks, runs, /activity
+  db/       @adamant/db        Drizzle — create
+  worker/   @adamant/worker    graphile-worker — create
+  cli/      @adamant/cli       monitor — create
 core/
-  agent/   @adamant/agent     LangGraph graph + tool gateway; no HTTP code
-  contract/ @adamant/contract zod schemas shared by API, worker and app
+  agent/    @adamant/agent     LangGraph + tools; no HTTP
+  contract/ @adamant/contract  zod — create
 ```
 
-Add `server/*` and `core/*` to `pnpm-workspace.yaml` when these are created.
+`server/*` and `core/*` are already in `pnpm-workspace.yaml`.
 
-Two rules keep this layout useful:
-
-1. `core/agent` **must not import the web framework.** The cloud worker and the desktop app's
-   local mode both run it.
-2. **The app calls the API from the Electron main process**, not the renderer. The session token
-   stays in main (stored with Electron's `safeStorage`), and the renderer's Content-Security-Policy
-   stays local-only. The renderer reaches the API through a typed IPC method.
+1. `core/agent` **must not import Hono.** The worker imports it.
+2. The CLI (and later Electron **main**) call the **hosted** API. Neither
+   holds GitHub or OpenAI secrets.

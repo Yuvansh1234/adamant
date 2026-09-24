@@ -1,15 +1,10 @@
-# Database execution
+# Database
 
-How we stand up Postgres for Adamant. The _why_ is in
-[backend-architecture.md](backend-architecture.md). The stack choice is in
-[tech-stack.md](tech-stack.md). This file is the _do this_ list for R1/R2.
+Phase 1 piece 1. Tasks 1.x in [phase-1-tasks.md](phase-1-tasks.md). Why the
+tables exist: [backend-architecture.md](backend-architecture.md).
 
-**Owner:** R2 (schema, migrations, run state). R1 owns `docker-compose` and `DATABASE_URL`.
-**Done when:** empty DB migrates; `runs.status` is a Postgres enum; `runs.version` exists; someone
-can insert a `queued` run. That unblocks `POST /runs` (R3), worker claim (R1), checkpoints (R7),
-and `sandbox_results` (R8).
-
-Do not wait for OAuth, LangGraph nodes, or Electron. Do not invent tables that are not below.
+**Done when:** empty DB migrates; you can insert a `queued` run. Do not invent
+tables that are not below. Do not wait for Electron OAuth.
 
 ---
 
@@ -32,11 +27,12 @@ Run state lives in `runs`. Queue state lives in graphile-worker's own schema. Do
 
 - A hand-rolled `jobs` table (`kind`, `locked_by`, `available_at`, …). graphile-worker already
   does `SKIP LOCKED` + `LISTEN/NOTIFY`.
-- Columns for GitHub installation tokens, OAuth access tokens, or `Authorization` headers. Mint
-  tokens per call; never persist them. Session rows store only `id` + `user_id` + `expires_at`.
-- Failure fingerprints, monthly budgets, `.adamant.yml` settings, or review-memory tables. Those
-  are post mid-eval (see [mid-eval-backend-plan.md](mid-eval-backend-plan.md) P2).
-- Soft-delete. We do not delete runs in v1.
+- Columns for GitHub installation tokens, OAuth access tokens, or raw `Authorization`
+  secrets. Mint installation tokens per call; store only `sessions.token_hash`, never the
+  bearer or a GitHub user token.
+- Failure fingerprints, monthly budgets, `.adamant.yml`, or review-memory
+  tables. Those are later, not Phase 1.
+- Soft-delete. We do not delete runs.
 - A second database for the agent. API, worker, and checkpointer share one `DATABASE_URL`.
 
 ---
@@ -145,28 +141,30 @@ Use Drizzle `pgEnum` so the database rejects illegal values. R10 copies these st
 
 From the [run state machine](backend-architecture.md#run-state):
 
-| Value             | Who writes it                  | Meaning                                        |
-| ----------------- | ------------------------------ | ---------------------------------------------- |
-| `queued`          | API on `POST /runs` or webhook | Job not yet claimed                            |
-| `running`         | Graph worker                   | Retrieve / triage / diagnose / plan / patch    |
-| `sandboxing`      | Graph worker                   | Waiting on a `sandbox_exec` job                |
-| `awaiting_hitl`   | Graph worker                   | Only after a **passing** `sandbox_results` row |
-| `opening_pr`      | Graph worker                   | HITL approved; creating the PR                 |
-| `awaiting_github` | Graph worker                   | PR open; watching checks / merge               |
-| `merged`          | API from `pull_request.closed` | Copied from GitHub. Agent never merges         |
-| `failed`          | Worker or API                  | Terminal error (403, attempts exhausted, …)    |
-| `aborted`         | API                            | HITL abort or HITL TTL                         |
+| Value             | Who writes it                  | Meaning                                       |
+| ----------------- | ------------------------------ | --------------------------------------------- |
+| `queued`          | API on `POST /runs` or webhook | Job not yet claimed                           |
+| `running`         | Graph worker                   | Retrieve / triage / diagnose / plan / patch   |
+| `sandboxing`      | Graph worker                   | Waiting on a `sandbox_exec` job               |
+| `awaiting_hitl`   | unused in Phase 1              | Later: wait for a human before merge          |
+| `opening_pr`      | Graph worker                   | Sandbox passed; creating the PR               |
+| `awaiting_github` | Graph worker                   | PR open; merge in flight                      |
+| `merged`          | Graph worker (merge API)       | This run's PR was merged. Webhook may confirm |
+| `failed`          | Worker or API                  | Terminal error (403, attempts exhausted, …)   |
+| `aborted`         | API                            | Later: HITL abort                             |
 
 Legal transitions (enforce in application code, not CHECK constraints beyond the enum):
 
 ```
 queued → running
 running → sandboxing | failed
-sandboxing → running | awaiting_hitl | failed
-awaiting_hitl → running | opening_pr | aborted
+sandboxing → running | opening_pr | failed
 opening_pr → awaiting_github | failed
 awaiting_github → merged | failed
 ```
+
+Phase 1 never enters `awaiting_hitl`. Keep the enum value so later HITL
+does not need a migration.
 
 ### `hitl_decision`
 
@@ -205,16 +203,20 @@ Never store secrets in `jsonb`.
 
 ### `sessions`
 
-The browser/Electron cookie is the session `id`. No token column.
+The client holds an unguessable secret (Electron: `Authorization: Bearer`;
+browser: `HttpOnly` cookie). Postgres stores only `token_hash`. `id` is a
+lookup key, not the bearer. See [backend-architecture.md](backend-architecture.md#user-authentication).
 
-| Column       | Type        | Constraints                                 |
-| ------------ | ----------- | ------------------------------------------- |
-| `id`         | uuid        | PK                                          |
-| `user_id`    | uuid        | not null, FK → `users.id` on delete cascade |
-| `expires_at` | timestamptz | not null                                    |
-| `created_at` | timestamptz | not null, default now() **(exec)**          |
+| Column       | Type        | Constraints                                  |
+| ------------ | ----------- | -------------------------------------------- |
+| `id`         | uuid        | PK                                           |
+| `user_id`    | uuid        | not null, FK → `users.id` on delete cascade  |
+| `token_hash` | text        | unique, not null (hash of the bearer secret) |
+| `expires_at` | timestamptz | not null                                     |
+| `created_at` | timestamptz | not null, default now() **(exec)**           |
 
-Index: `sessions_expires_at_idx` on `expires_at` (expiry sweep).
+Indexes: `sessions_expires_at_idx` on `expires_at`; unique on `token_hash`.
+Never log the raw secret. Never store GitHub user access tokens here.
 
 ### `installations`
 
@@ -228,7 +230,8 @@ GitHub App installation. Tokens are minted per call and **must not** appear here
 
 ### `repo_bindings`
 
-A run is allowed only if the session user can access a repo bound to that installation.
+Phase 1: bind the eval repo to the GitHub App installation. Webhook and
+`POST /runs` both need this row. Collaborator checks wait for OAuth.
 
 | Column            | Type        | Constraints                                |
 | ----------------- | ----------- | ------------------------------------------ |
@@ -245,7 +248,7 @@ Index: `repo_bindings_installation_id_idx` on `installation_id`.
 | Column              | Type         | Constraints                                                     |
 | ------------------- | ------------ | --------------------------------------------------------------- |
 | `id`                | uuid         | PK                                                              |
-| `actor_user_id`     | uuid         | not null, FK → `users.id` restrict                              |
+| `actor_user_id`     | uuid         | not null, FK → `users.id` restrict (seed user in Phase 1)       |
 | `repo_binding_id`   | uuid         | not null, FK → `repo_bindings.id` restrict                      |
 | `status`            | `run_status` | not null, default `queued`                                      |
 | `version`           | integer      | not null, default `0`                                           |
@@ -259,10 +262,11 @@ Index: `repo_bindings_installation_id_idx` on `installation_id`.
 
 `idempotency_key` is `webhook:{delivery_id}` or the client `Idempotency-Key`.
 
-Optimistic HITL: `UPDATE runs SET version = version + 1, … WHERE id = $1 AND version = $2`.
-Zero rows → HTTP 409.
+`version` is for later HITL (`UPDATE … WHERE version = $2` → 409). Phase 1
+does not need it to merge.
 
-HITL without a passing `sandbox_results` row is rejected in the API/worker, not by a DB trigger.
+Merge without a passing `sandbox_results` row is rejected in the worker, not
+by a DB trigger.
 
 Indexes:
 
@@ -275,17 +279,29 @@ counter, not the cap.
 
 ### `webhook_deliveries`
 
-Duplicate GitHub deliveries ACK and do not start a second run.
+Duplicate GitHub deliveries ACK and do not start a second run. The CLI
+`watch` feed reads this table (`GET /activity`).
 
-| Column        | Type        | Constraints                                 |
-| ------------- | ----------- | ------------------------------------------- |
-| `delivery_id` | text        | PK (GitHub `X-GitHub-Delivery`)             |
-| `run_id`      | uuid        | nullable, FK → `runs.id` on delete set null |
-| `received_at` | timestamptz | not null, default now() **(exec)**          |
+| Column        | Type        | Constraints                                                                  |
+| ------------- | ----------- | ---------------------------------------------------------------------------- |
+| `delivery_id` | text        | PK (GitHub `X-GitHub-Delivery`)                                              |
+| `run_id`      | uuid        | nullable, FK → `runs.id` on delete set null                                  |
+| `event`       | text        | not null **(exec)** — `workflow_run`, `pull_request`, `ping`, `installation` |
+| `action`      | text        | nullable **(exec)** — `completed`, `closed`, …                               |
+| `pr_number`   | integer     | nullable **(exec)** — set on pull_request                                    |
+| `summary`     | text        | not null **(exec)** — short, no tokens                                       |
+| `received_at` | timestamptz | not null, default now() **(exec)**                                           |
 
-`run_id` is null when we ACK a delivery we do not turn into a run (ping, ignored event). Insert
-the delivery row **before** creating the run; on unique-violation, return the existing row and
-stop.
+`run_id` is null when we ACK a delivery we do not turn into a run (ping,
+someone else's merge, ignored event). Insert the delivery row **before**
+creating the run; on unique-violation, return the existing row and stop.
+
+Merged PRs that are not ours still get a row (`event = pull_request`,
+`action = closed`, `pr_number` set). That is how the CLI lists every merge
+without a new table.
+
+Index: `webhook_deliveries_received_at_idx` on `received_at` (for
+`GET /activity`).
 
 ### `sandbox_results`
 
@@ -297,8 +313,8 @@ stop.
 | `artifact_key` | text              | not null (log object key; not the log body) |
 | `created_at`   | timestamptz       | not null, default now() **(exec)**          |
 
-A run may have many rows (one per attempt). HITL is allowed only when the **latest** row is
-`pass`. Index: `sandbox_results_run_id_idx` on `run_id`.
+A run may have many rows (one per attempt). Open and merge only when the
+**latest** row is `pass`. Index: `sandbox_results_run_id_idx` on `run_id`.
 
 Do not put sandbox stdout in this table. Artifacts are files (or object storage later).
 
@@ -334,8 +350,7 @@ Index: `tool_invocations_run_id_idx` on `run_id`.
 
 ### `audit_events`
 
-Append-only. Every graph step and sandbox job also records timings here
-([performance.md](performance.md#measuring)).
+Append-only. `started_at` / `ended_at` are optional (later timings).
 
 | Column       | Type        | Constraints                                                        |
 | ------------ | ----------- | ------------------------------------------------------------------ |
@@ -349,7 +364,7 @@ Append-only. Every graph step and sandbox job also records timings here
 
 Index: `audit_events_run_id_at_idx` on `(run_id, at)`.
 
-SSE (`GET /runs/:id/events`) reads this table (and/or `LISTEN`). Do not put tokens in `detail`.
+Do not put tokens in `detail`. `GET /runs/:id` and `GET /activity` read this.
 
 ---
 
@@ -404,83 +419,44 @@ Implement these next to the writes, with tests. Do not encode them as triggers i
 
 1. Unknown / out-of-scope tool → `tool_result_status = denied`, run may go `failed`. No retry
    from the sandbox on git/API 403.
-2. `awaiting_hitl` only if the latest `sandbox_results.verdict` is `pass`.
-3. HITL `UPDATE` must include `version` (409 on mismatch).
+2. `opening_pr` and `merge_pull_request` only if the latest
+   `sandbox_results.verdict` is `pass`.
+3. HITL `UPDATE` (later) must include `version` (409 on mismatch).
 4. `agent_branch` is always `adamant/{run_id}`.
-5. `merged` is only written from `pull_request.closed`. No code path calls GitHub merge.
+5. Merge only this run's PR (`runs.pr_number`, head `adamant/{run_id}`).
+   `merged` is written after that API call succeeds. `pull_request.closed`
+   may confirm; it must not merge again.
 6. Redact before persist. A test inserts a fake token in tool args and asserts the stored jsonb
    does not contain it.
 
 ---
 
-## How other seats use this
+## Who uses this after migrate
 
-| Seat | After migrate they can                                                 |
-| ---- | ---------------------------------------------------------------------- |
-| R3   | `insert` `runs` (`queued`) and return 202; later HITL `UPDATE` + 409   |
-| R4   | `insert` `webhook_deliveries`; unique `delivery_id` stops double runs  |
-| R7   | `PostgresSaver.setup()`; update `runs.status` at each stub node        |
-| R8   | `insert` `sandbox_results`                                             |
-| R10  | `insert` `tool_invocations` / `audit_events`; zod enums match `pgEnum` |
-| R1   | Enqueue `graph_step` after the run row exists                          |
+| Seat | Then they can                                       |
+| ---- | --------------------------------------------------- |
+| R3   | insert `queued` runs; `GET /runs` + `GET /activity` |
+| R4   | insert `webhook_deliveries` (unique `delivery_id`)  |
+| R7   | `PostgresSaver.setup()`; update `runs.status`       |
+| R8   | insert `sandbox_results`                            |
+| R10  | insert `tool_invocations` / `audit_events`          |
+| R1   | enqueue `graph_step`                                |
 
-R9 (eval repo) does not need this package.
+## First PRs
 
----
+1. Compose + `@adamant/db` + tables (no `jobs`). Migrate twice on a throwaway
+   volume.
+2. `@adamant/worker` + graphile-worker; a no-op `graph_step` claims a job.
+3. Seed one user + installation + eval `repo_bindings`. `POST /runs` and
+   webhooks use that user as `actor_user_id`.
 
-## First PRs (do not combine)
-
-### PR 1 — Compose + `@adamant/db` + Adamant tables
-
-1. Root `docker-compose.yml` + `.env.example`.
-2. Create `@adamant/db` with the enums and tables above (no `jobs`).
-3. `drizzle-kit generate` and commit `drizzle/`.
-4. README / this doc: `docker compose up -d postgres && pnpm --filter @adamant/db db:migrate`.
-5. Verify on a throwaway volume: migrate twice (second time is a no-op).
-
-**Out of this PR:** graphile-worker, `POST /runs`, seeds, SSE.
-
-### PR 2 — graphile-worker
-
-On `@adamant/worker` (create the package if needed): depend on `graphile-worker` and
-`@adamant/db`. Run the worker's migrate against the same `DATABASE_URL`. Register a no-op
-`graph_step` task. Prove: insert a run, enqueue, worker claims in &lt;1s.
-
-### PR 3 — `POST /runs` writes `queued`
-
-R3. Dev user can be a seeded `users` row. No model. Returns 202 + `runId`. Same
-`Idempotency-Key` returns the same run.
-
----
-
-## Seed (later — Phase D)
-
-A small `src/seed.ts` that upserts: one user, one installation, one `repo_bindings` row for the
-eval repo. Do **not** block PR 1 on this. Phase D needs `compose down/up` + seed to restore the
-demo.
-
----
-
-## CI
-
-The existing workflow does not need a database job in PR 1. Adding `services: postgres` and
-`pnpm --filter @adamant/db db:migrate` as a later CI step is good; it is not the first merge
-gate. `pnpm typecheck` must pass on `@adamant/db` as soon as the package exists.
-
----
+`pnpm typecheck` must pass on `@adamant/db` as soon as the package exists.
+A Postgres CI job can wait.
 
 ## Checklist
 
-- [ ] `docker compose up -d postgres` is documented and healthy
-- [ ] `@adamant/db` exists; `@adamant/api` depends on `workspace:*`
-- [ ] All enums and tables in this file exist; `jobs` does not
-- [ ] First SQL migration is committed
-- [ ] `db:migrate` on an empty DB succeeds; a second run is a no-op
+- [ ] `docker compose up -d postgres` is healthy
+- [ ] All tables in this file exist; `jobs` does not
+- [ ] First SQL migration is committed; second migrate is a no-op
 - [ ] No token-shaped columns
-- [ ] R10's zod enums will use the same string unions
-- [ ] graphile-worker and `PostgresSaver` are **not** modeled in Drizzle
-- [ ] Someone can `insert` a `queued` run (PR 3)
-
-Grounded in [backend-architecture.md](backend-architecture.md) (ERD, run states, failure table),
-[tech-stack.md](tech-stack.md) (Drizzle, graphile-worker), and
-[performance.md](performance.md) (`audit_events` timings).
+- [ ] graphile-worker and `PostgresSaver` are not modeled in Drizzle

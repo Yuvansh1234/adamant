@@ -1,30 +1,37 @@
 # Adamant: notes for coding agents
 
-Adamant is a desktop app plus a planned backend that fixes failing CI: it diagnoses a red build,
-proves a fix in a sandbox, and opens a pull request for a human to review. It never merges.
+Adamant diagnoses a red CI build, proves a fix in a sandbox, opens a pull
+request, and merges **that** PR. It does not merge anyone else's work.
+
+Phase 1 is a hosted backend (GitHub App + worker) plus a CLI that stays
+connected to that API, with one heal-and-merge.
+Start at [docs/phase-1-tasks.md](docs/phase-1-tasks.md).
 
 Read before larger changes:
 
-- [docs/product.md](docs/product.md): what we are building and in what order
-- [docs/backend-architecture.md](docs/backend-architecture.md): control plane, security model, run
-  states
-- [docs/database.md](docs/database.md): Postgres schema, migrations, Compose, first DB PRs
-- [docs/tech-stack.md](docs/tech-stack.md): stack decisions and planned layout
+- [docs/product.md](docs/product.md): what we are building
+- [docs/phase-1-tasks.md](docs/phase-1-tasks.md): Phase 1 tasks
+- [docs/backend-architecture.md](docs/backend-architecture.md): how API, worker, and agent connect
+- [docs/database.md](docs/database.md): Postgres schema
+- [docs/tech-stack.md](docs/tech-stack.md): stack and layout
 - [docs/performance.md](docs/performance.md): speed rules for the run path
+- [docs/mid-eval-backend-plan.md](docs/mid-eval-backend-plan.md): calendar only
 
 ## Layout
 
 ```
-electron/
-  shared/   @adamant/shared   IPC contract; imported by every process; must not import electron
-  main/     @adamant/main     Electron main process: windows, lifecycle, IPC handlers
-  preload/  @adamant/preload  contextBridge; the only main <-> renderer seam
-  adamant/  @adamant/renderer React 19 UI, built by Vite
-scripts/                      dev orchestrator, skills sync
-docs/                         design docs
+electron/           desktop shell
+server/api          @adamant/api      Hono (webhooks + CLI)
+server/db           @adamant/db       Drizzle (create)
+server/worker       @adamant/worker   graphile-worker (create)
+server/cli          @adamant/cli      monitor (create)
+core/agent          @adamant/agent    LangGraph library
+core/contract       @adamant/contract zod (create)
+docs/               design docs
 ```
 
-The backend (`server/*`, `core/*`) is planned; see docs/tech-stack.md before creating it.
+See [docs/tech-stack.md](docs/tech-stack.md). `@adamant/api` does not import
+`@adamant/agent`.
 
 ## Commands
 
@@ -65,12 +72,14 @@ Electron:
 
 Backend (from docs/backend-architecture.md):
 
-- The agent never merges, force-pushes, or pushes anywhere except `refs/heads/adamant/{run_id}`.
+- The agent force-pushes nowhere and pushes only `refs/heads/adamant/{run_id}`.
+  It may merge **only** the PR for that run, after a passing `sandbox_results`
+  row. Use the `add-agent-tool` skill for `merge_pull_request`.
 - Every agent tool is allowlisted, logged to `tool_invocations` / `audit_events` with `run_id`, and
-  unknown calls fail closed. Use the `add-agent-tool` skill.
+  unknown calls fail closed.
 - GitHub installation tokens are minted per call and never stored in Electron, checkpoints, prompts,
   logs or the sandbox.
-- No approval without a passing `sandbox_results` row.
+- No PR and no merge without a passing `sandbox_results` row.
 
 ## Performance
 

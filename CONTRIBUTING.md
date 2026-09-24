@@ -9,9 +9,8 @@ pnpm install
 pnpm dev
 ```
 
-Read [docs/product.md](docs/product.md) for what we're building and in what order, and
-[AGENTS.md](AGENTS.md) for the layout, conventions and security rules. The rules in AGENTS.md apply
-to people as well as coding agents.
+Phase 1 work is [docs/phase-1-tasks.md](docs/phase-1-tasks.md). Layout and
+security: [AGENTS.md](AGENTS.md) (applies to people as well as agents).
 
 ## Workflow
 
