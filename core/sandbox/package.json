@@ -9,6 +9,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "keywords": ["sandbox", "docker", "testing", "adamant"],
+  "keywords": [
+    "sandbox",
+    "docker",
+    "testing",
+    "adamant"
+  ],
   "license": "MIT"
 }
