@@ -6,7 +6,7 @@ import * as crypto from 'crypto'
  */
 
 export class WebhookService {
-  static async processEvent(deliveryId: string, event: string, payload: any): Promise<void> {
+  static async processEvent(deliveryId: string, event: string, payload: unknown): Promise<void> {
     // 1. Check for duplicate deliveryId
     const isDuplicate = await this.checkDuplicate(deliveryId)
     if (isDuplicate) {
@@ -42,18 +42,19 @@ export class WebhookService {
     console.log(`Saved delivery ${deliveryId} linked to run ${runId}`)
   }
 
-  private static async handleInstallation(deliveryId: string, _payload: any): Promise<void> {
+  private static async handleInstallation(deliveryId: string, _payload: unknown): Promise<void> {
     // Upsert installations / repo_bindings
     console.log(`Handling installation for delivery ${deliveryId}`)
     await this.saveDelivery(deliveryId, null)
   }
 
-  private static async handleWorkflowRun(deliveryId: string, payload: any): Promise<void> {
-    if (payload.action !== 'completed') {
+  private static async handleWorkflowRun(deliveryId: string, payload: unknown): Promise<void> {
+    const p = payload as { action?: string; workflow_run?: { conclusion?: string } }
+    if (p.action !== 'completed') {
       await this.saveDelivery(deliveryId, null)
       return
     }
-    if (payload.workflow_run.conclusion !== 'failure') {
+    if (p.workflow_run?.conclusion !== 'failure') {
       await this.saveDelivery(deliveryId, null)
       return
     }
@@ -61,26 +62,27 @@ export class WebhookService {
     // Failed workflow_run -> queued run + graph_step
     const runId = crypto.randomUUID()
     console.log(`Creating run ${runId} for failed workflow_run`)
-    
+
     // TODO: Insert runs (queued)
     // TODO: Enqueue graph_step in graphile-worker
-    
+
     await this.saveDelivery(deliveryId, runId)
   }
 
-  private static async handlePullRequest(deliveryId: string, payload: any): Promise<void> {
-    if (payload.action !== 'closed' || !payload.pull_request.merged) {
+  private static async handlePullRequest(deliveryId: string, payload: unknown): Promise<void> {
+    const p = payload as { action?: string; pull_request?: { merged?: boolean; number?: number } }
+    if (p.action !== 'closed' || !p.pull_request?.merged) {
       await this.saveDelivery(deliveryId, null)
       return
     }
 
     // If pr_number matches a run -> mark run 'merged'
-    console.log(`Handling merged pull_request ${payload.pull_request.number}`)
-    
+    console.log(`Handling merged pull_request ${p.pull_request.number}`)
+
     // TODO: Query runs where pr_number = payload.pull_request.number
     // TODO: If found, update run status to 'merged'
     // TODO: Else, just save delivery
-    
+
     await this.saveDelivery(deliveryId, null)
   }
 }

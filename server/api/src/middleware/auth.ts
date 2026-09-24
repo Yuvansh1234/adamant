@@ -1,5 +1,4 @@
-import { Context } from 'hono'
-import type { Next } from 'hono'
+import type { Context, Next } from 'hono'
 
 /**
  * Phase 1 User Authentication:
