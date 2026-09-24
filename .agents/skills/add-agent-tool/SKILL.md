@@ -8,7 +8,7 @@ description: Add or change a tool the Adamant agent can call (git, GitHub API, G
 The model never runs commands directly. It calls tools, and every tool goes through the gateway,
 which checks the allowlist, logs the call and scopes it to one run and one repo. The rules come
 from [docs/backend-architecture.md](../../../docs/backend-architecture.md#agent-tools). The code
-will live in `core/agent` (see [docs/tech-stack.md](../../../docs/tech-stack.md#planned-layout)).
+will live in `core/agent` (see [docs/tech-stack.md](../../../docs/tech-stack.md#layout)).
 
 ## Before writing it
 
@@ -39,8 +39,13 @@ will live in `core/agent` (see [docs/tech-stack.md](../../../docs/tech-stack.md#
 
 ## Never allowed
 
-Merging, force-pushing, pushing to the default branch, deleting the default branch, changing
-rulesets or admin settings, minting tokens, acting on any repo other than the run's bound repo.
+Force-pushing, pushing to the default branch, deleting the default branch, changing
+rulesets or admin settings, minting tokens, acting on any repo other than the run's bound repo,
+merging a PR this run did not open.
+
+`merge_pull_request` is allowed **only** for `runs.pr_number` when the head is
+`adamant/{run_id}` and the latest `sandbox_results.verdict` is `pass`. The adapter
+reads those from the run; the model does not pass an arbitrary PR number.
 
 ## Tests
 

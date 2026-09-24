@@ -2,8 +2,9 @@
 
 Self-healing codebase AI agent for developers — part of the IT-314 SWE course project.
 
-A cross-platform desktop app: an Electron shell wrapped around a React renderer, organised
-as a pnpm workspace.
+Hosted backend (GitHub App + worker) plus a CLI that stays connected to it.
+Phase 1:
+[docs/phase-1-tasks.md](docs/phase-1-tasks.md).
 
 ## Requirements
 
@@ -33,25 +34,27 @@ pnpm install
 ## Layout
 
 ```
-electron/
-  shared/    @adamant/shared   — the IPC contract; imported by all three processes
-  main/      @adamant/main     — Electron main process (windows, lifecycle, IPC handlers)
-  preload/   @adamant/preload  — the contextBridge; the only main <-> renderer seam
-  adamant/   @adamant/renderer — React 19 UI, built by Vite
-scripts/dev.mjs                — dev orchestrator (dev server, watchers, Electron restarts)
+electron/            desktop shell
+server/api           Hono API (webhooks + CLI)
+server/cli           adamant watch (create)
+core/agent           LangGraph library
+scripts/dev.mjs      Vite + watchers + Electron
 ```
 
 ## Docs
 
-| Doc                                                          | Covers                                                   |
-| ------------------------------------------------------------ | -------------------------------------------------------- |
-| [docs/product.md](docs/product.md)                           | What we're building, trust features, roadmap             |
-| [docs/backend-architecture.md](docs/backend-architecture.md) | Control plane, GitHub App, sandbox, approval, run states |
-| [docs/database.md](docs/database.md)                         | Postgres schema, migrations, Compose, what not to build  |
-| [docs/tech-stack.md](docs/tech-stack.md)                     | Stack decisions and planned backend layout               |
-| [docs/performance.md](docs/performance.md)                   | Local mode, fast cloud loop, targets, measurement        |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                           | Branches, commits, PRs, review and merge                 |
-| [AGENTS.md](AGENTS.md)                                       | Instructions for Claude Code, Cursor and Codex           |
+| Doc                                                            | Covers                              |
+| -------------------------------------------------------------- | ----------------------------------- |
+| [docs/phase-1-tasks.md](docs/phase-1-tasks.md)                 | Phase 1: App, CLI, heal + merge     |
+| [docs/product.md](docs/product.md)                             | What we're building                 |
+| [docs/backend-architecture.md](docs/backend-architecture.md)   | API, worker, agent, GitHub, sandbox |
+| [docs/database.md](docs/database.md)                           | Postgres schema                     |
+| [docs/mid-eval-backend-plan.md](docs/mid-eval-backend-plan.md) | Calendar and seats                  |
+| [docs/tech-stack.md](docs/tech-stack.md)                       | Stack and layout                    |
+| [docs/performance.md](docs/performance.md)                     | Speed rules for the run path        |
+| [docs/glossary.md](docs/glossary.md)                           | Words the other docs use            |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                             | Branches, commits, PRs              |
+| [AGENTS.md](AGENTS.md)                                         | Agent / reviewer rules              |
 
 Coding agents read `AGENTS.md` and the skills in `.agents/skills/`.
 
