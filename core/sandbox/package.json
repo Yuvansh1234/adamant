@@ -1,0 +1,14 @@
+﻿{
+  "name": "@adamant/sandbox",
+  "version": "0.1.0",
+  "description": "Docker sandbox runner for isolated candidate patch validation",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "keywords": ["sandbox", "docker", "testing", "adamant"],
+  "license": "MIT"
+}
