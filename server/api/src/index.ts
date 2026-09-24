@@ -1,11 +1,9 @@
 import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
+import { createApp, type ApiType } from './app.ts'
 
-const app = new Hono().get('/health', (c) => c.json({ status: 'ok' }))
+const app = createApp()
 
-// The Electron main process imports this type and calls the API through hono/client,
-// so a changed route stops the app compiling. See docs/tech-stack.md.
-export type ApiType = typeof app
+export type { ApiType }
 
 const port = Number(process.env.PORT ?? 8787)
 
