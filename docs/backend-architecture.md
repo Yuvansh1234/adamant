@@ -172,6 +172,10 @@ flowchart TD
 
 ## Data
 
+Execution (Compose, Drizzle package, enums, migrations, first PRs) is in
+[database.md](database.md). The ERD below is the product model; `jobs` is replaced by
+`graphile-worker` (see that doc).
+
 ```mermaid
 erDiagram
   users ||--o{ sessions : has

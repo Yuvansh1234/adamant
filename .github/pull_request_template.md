@@ -25,5 +25,4 @@ Keep this short: say what a reviewer can't see in the diff. Delete sections that
 - [ ] The security rules in AGENTS.md still hold (IPC surface, renderer, credentials, agent tools)
 - [ ] Run-path changes follow docs/performance.md
 - [ ] Docs updated if behaviour or architecture changed
-- [ ] Ran `pnpm skills:sync` if `.agents/skills` changed
 - [ ] If an AI agent wrote any of this, I've read and understood every line

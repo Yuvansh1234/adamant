@@ -20,9 +20,7 @@
     "start": "pnpm build && electron .",
     "package": "pnpm build && electron-builder --config electron-builder.yml",
     "package:dir": "pnpm build && electron-builder --config electron-builder.yml --dir",
-    "clean": "rm -rf release electron/*/dist electron/*/*.tsbuildinfo",
-    "skills:sync": "node scripts/sync-skills.mjs",
-    "skills:check": "node scripts/sync-skills.mjs --check"
+    "clean": "rm -rf release electron/*/dist electron/*/*.tsbuildinfo"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
