@@ -1,7 +1,14 @@
 import { serve } from '@hono/node-server'
-import { createApp, type ApiType } from './app.ts'
+import { github } from './webhooks/github.js'
+import { runs } from './routes/runs.js'
+import { activity } from './routes/activity.js'
+import { createApp, type ApiType } from './app.js'
 
 const app = createApp()
+
+app.route('/webhooks/github', github)
+app.route('/runs', runs)
+app.route('/activity', activity)
 
 export type { ApiType }
 
