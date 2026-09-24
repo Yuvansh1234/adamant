@@ -1,5 +1,5 @@
 ﻿import { spawn } from 'node:child_process';
-import { SandboxExecutionOptions, SandboxResult } from './types';
+import type { SandboxExecutionOptions, SandboxResult } from './types';
 
 export class DockerSandbox {
   private defaultImage: string;
@@ -20,15 +20,19 @@ export class DockerSandbox {
     const memoryLimit = options.memoryLimit ?? '1g';
     const cpuLimit = options.cpuLimit ?? '1.0';
 
-    // Build docker run CLI arguments
     const dockerArgs: string[] = [
       'run',
       '--rm',
-      '--network', 'none',
-      '--memory', memoryLimit,
-      '--cpus', cpuLimit,
-      '-v', `${options.workspacePath}:/workspace:ro`,
-      '-w', '/workspace',
+      '--network',
+      'none',
+      '--memory',
+      memoryLimit,
+      '--cpus',
+      cpuLimit,
+      '-v',
+      `${options.workspacePath}:/workspace:ro`,
+      '-w',
+      '/workspace',
     ];
 
     if (options.env) {
@@ -51,15 +55,15 @@ export class DockerSandbox {
         proc.kill('SIGKILL');
       }, timeoutMs);
 
-      proc.stdout.on('data', (data) => {
+      proc.stdout?.on('data', (data: Buffer | string) => {
         stdout += data.toString();
       });
 
-      proc.stderr.on('data', (data) => {
+      proc.stderr?.on('data', (data: Buffer | string) => {
         stderr += data.toString();
       });
 
-      proc.on('error', (err) => {
+      proc.on('error', (err: Error) => {
         clearTimeout(timer);
         resolve({
           success: false,
@@ -71,7 +75,7 @@ export class DockerSandbox {
         });
       });
 
-      proc.on('close', (code) => {
+      proc.on('close', (code: number | null) => {
         clearTimeout(timer);
         resolve({
           success: !timedOut && code === 0,
