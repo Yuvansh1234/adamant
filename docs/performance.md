@@ -84,26 +84,30 @@ Give the model everything it needs in one prompt instead of letting it explore s
 
 ### Model calls
 
-- **One model, effort set per step.** Claude Opus 5 with `output_config.effort: "low"` for sorting
-  the failure and `"high"` for writing the patch (try `"xhigh"` and measure). The prompt cache
-  belongs to one model, so splitting steps across models (for example Haiku for triage) loses cache
+Calls go through the official [`openai`](https://www.npmjs.com/package/openai) SDK with
+`OPENAI_API_KEY`. The key stays in the API/worker environment; it is never stored in Electron,
+checkpoints, prompts, logs or the sandbox.
+
+- **One model, effort set per step.** Use one OpenAI model (set `OPENAI_MODEL`, default GPT-5) so
+  the prompt cache stays warm. Set reasoning effort `low` for sorting the failure and `high` for
+  writing the patch (try `medium` and measure). Splitting triage onto a second model loses cache
   hits. Measure before splitting.
-- **Prompt caching.** The cache matches on the start of the prompt, in the order tools → system →
-  messages. Keep tool definitions, the system prompt and repo context identical and first on every
-  call. Put anything that changes per run (timestamps, run IDs, log lines) after the last
-  `cache_control` breakpoint. Check `usage.cache_read_input_tokens`: if it stays at zero, something
-  in the start of the prompt is changing.
-- **Edit, don't rewrite.** Use Anthropic's text editor tool (`text_editor_20250728`, name
-  `str_replace_based_edit_tool`) so the model outputs only the changed lines. Output tokens are the
-  slow part of a model call.
+- **Prompt caching.** OpenAI caches a stable prefix automatically. Keep tool definitions, the
+  system prompt and repo context identical and first on every call. Put anything that changes per
+  run (timestamps, run IDs, log lines) after that prefix. Check
+  `usage.prompt_tokens_details.cached_tokens`: if it stays at zero on the second call of a run,
+  something in the start of the prompt is changing.
+- **Edit, don't rewrite.** Expose a narrow apply-patch / str-replace tool so the model outputs only
+  the changed lines. Output tokens are the slow part of a model call. Do not ask it to rewrite
+  whole files.
 - **Parallel tool calls.** When the model asks for several tools at once, run them concurrently and
   return all results in a single message. Splitting them teaches the model to stop calling in
   parallel.
 - **Stream** every call, so the app can show progress.
-- **Fast mode for local mode.** Opus 5's fast mode generates output up to 2.5× faster at twice the
-  price ($10/$50 per million input/output tokens vs $5/$25). It is a research preview, available
-  only on Anthropic's own API, and switching speed invalidates the prompt cache. Use it where
-  someone is waiting, not for background runs.
+- **Local mode latency.** When a person is waiting, keep the same model and drop effort to `low`
+  (or use OpenAI's lower-latency / priority option if we measure a win). Switching model mid-run
+  invalidates the prefix cache. Use the cheaper path for background webhook runs only after
+  measuring fix rate.
 
 ### Verifying the fix
 
@@ -153,8 +157,8 @@ applies it.
 - [ ] No fresh `git clone` per run; mirrors plus worktrees
 - [ ] No dependency install per run when a lockfile-tagged image exists
 - [ ] Only failed-job logs downloaded; parsed before reaching the model
-- [ ] Stable prompt start: nothing per-run before the last cache breakpoint
-- [ ] Edits via the text editor tool, not whole-file rewrites
+- [ ] Stable prompt start: nothing per-run before the cached prefix
+- [ ] Edits via apply-patch / str-replace, not whole-file rewrites
 - [ ] Parallel tool results returned in one message
 - [ ] Targeted tests during retries; full suite once
 - [ ] Push only after the sandbox passes

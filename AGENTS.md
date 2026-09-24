@@ -8,6 +8,7 @@ Read before larger changes:
 - [docs/product.md](docs/product.md): what we are building and in what order
 - [docs/backend-architecture.md](docs/backend-architecture.md): control plane, security model, run
   states
+- [docs/database.md](docs/database.md): Postgres schema, migrations, Compose, first DB PRs
 - [docs/tech-stack.md](docs/tech-stack.md): stack decisions and planned layout
 - [docs/performance.md](docs/performance.md): speed rules for the run path
 
@@ -79,8 +80,7 @@ Changes to the worker, agent or sandbox follow the checklist in
 
 ## Skills
 
-Task-specific instructions live in `.agents/skills/` (read natively by Codex and Cursor).
-`.claude/skills/` is a generated copy for Claude Code.
+Task-specific instructions live in `.agents/skills/` (read by Claude Code, Codex and Cursor).
 
 | Skill                | Use when                                                  |
 | -------------------- | --------------------------------------------------------- |
@@ -88,8 +88,6 @@ Task-specific instructions live in `.agents/skills/` (read natively by Codex and
 | `add-agent-tool`     | Adding or changing a tool the agent can call              |
 | `performance-review` | Reviewing a change to the run path for speed regressions  |
 | `write-pull-request` | Writing commit messages, PR titles and PR descriptions    |
-
-Edit skills only in `.agents/skills/`, then run `pnpm skills:sync`.
 
 ## Git and pull requests
 

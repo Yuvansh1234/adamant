@@ -23,16 +23,16 @@ We would reconsider only if most of the team were much stronger in Python than T
 
 ## Components
 
-| Piece                 | Choice                                                              | Notes                                                                 |
-| --------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| HTTP API              | [Hono](https://hono.dev) on `@hono/node-server`                     | Typed client for the app; raw body for webhooks; built-in SSE         |
-| Validation / contract | `zod`, via `@hono/zod-validator`                                    | One schema package shared by API, workers and app                     |
-| GitHub App + webhooks | `@octokit/app`, `@octokit/webhooks`                                 | Installation tokens minted per call; webhook signature checks         |
-| Database              | PostgreSQL with Drizzle ORM                                         | Migrations checked in                                                 |
-| Job queue             | `graphile-worker`                                                   | Postgres `SKIP LOCKED` plus `LISTEN/NOTIFY` for instant pickup        |
-| Agent graph           | `@langchain/langgraph` + `@langchain/langgraph-checkpoint-postgres` | `thread_id = run_id`; `interrupt()` for the approval step             |
-| LLM                   | `@anthropic-ai/sdk`, Claude Opus 5                                  | Effort set per step; see [performance.md](performance.md#model-calls) |
-| Sandbox               | `dockerode`                                                         | One container per job, as in the architecture doc                     |
+| Piece                 | Choice                                                              | Notes                                                                                          |
+| --------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| HTTP API              | [Hono](https://hono.dev) on `@hono/node-server`                     | Typed client for the app; raw body for webhooks; built-in SSE                                  |
+| Validation / contract | `zod`, via `@hono/zod-validator`                                    | One schema package shared by API, workers and app                                              |
+| GitHub App + webhooks | `@octokit/app`, `@octokit/webhooks`                                 | Installation tokens minted per call; webhook signature checks                                  |
+| Database              | PostgreSQL with Drizzle ORM                                         | Migrations checked in                                                                          |
+| Job queue             | `graphile-worker`                                                   | Postgres `SKIP LOCKED` plus `LISTEN/NOTIFY` for instant pickup                                 |
+| Agent graph           | `@langchain/langgraph` + `@langchain/langgraph-checkpoint-postgres` | `thread_id = run_id`; `interrupt()` for the approval step                                      |
+| LLM                   | [`openai`](https://www.npmjs.com/package/openai)                    | `OPENAI_API_KEY`; model and effort per step — see [performance.md](performance.md#model-calls) |
+| Sandbox               | `dockerode`                                                         | One container per job, as in the architecture doc                                              |
 
 `graphile-worker` manages its own job tables, so it replaces the hand-designed `jobs` table in the
 architecture doc. Run state stays in `runs`.
@@ -80,7 +80,7 @@ Add `server/*` and `core/*` to `pnpm-workspace.yaml` when these are created.
 
 Two rules keep this layout useful:
 
-1. **`core/agent` must not import the web framework.** The cloud worker and the desktop app's
+1. `core/agent` **must not import the web framework.** The cloud worker and the desktop app's
    local mode both run it.
 2. **The app calls the API from the Electron main process**, not the renderer. The session token
    stays in main (stored with Electron's `safeStorage`), and the renderer's Content-Security-Policy

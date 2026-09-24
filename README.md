@@ -47,13 +47,13 @@ scripts/dev.mjs                — dev orchestrator (dev server, watchers, Elect
 | ------------------------------------------------------------ | -------------------------------------------------------- |
 | [docs/product.md](docs/product.md)                           | What we're building, trust features, roadmap             |
 | [docs/backend-architecture.md](docs/backend-architecture.md) | Control plane, GitHub App, sandbox, approval, run states |
+| [docs/database.md](docs/database.md)                         | Postgres schema, migrations, Compose, what not to build  |
 | [docs/tech-stack.md](docs/tech-stack.md)                     | Stack decisions and planned backend layout               |
 | [docs/performance.md](docs/performance.md)                   | Local mode, fast cloud loop, targets, measurement        |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                           | Branches, commits, PRs, review and merge                 |
 | [AGENTS.md](AGENTS.md)                                       | Instructions for Claude Code, Cursor and Codex           |
 
-Coding agents read `AGENTS.md` (Claude Code via `CLAUDE.md`) and the skills in `.agents/skills/`.
-After editing a skill, run `pnpm skills:sync` to update the Claude Code copy in `.claude/skills/`.
+Coding agents read `AGENTS.md` and the skills in `.agents/skills/`.
 
 ### How the processes fit together
 
