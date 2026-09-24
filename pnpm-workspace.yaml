@@ -2,3 +2,5 @@ packages:
   - 'electron/*'
   - 'server/*'
   - 'core/*'
+allowBuilds:
+  electron-winstaller: true
