@@ -1,31 +1,43 @@
-﻿export interface SandboxExecutionOptions {
-  /** Path to the workspace/directory to mount and test */
-  workspacePath: string
-  /** Test command to execute inside container (e.g. 'pnpm test' or 'npm test') */
-  command: string
-  /** Max execution time in milliseconds before killing the container (default: 60000ms) */
-  timeoutMs?: number
-  /** Docker image to use (default: 'node:20-alpine') */
-  image?: string
-  /** Memory limit (default: '1g') */
-  memoryLimit?: string
-  /** CPU quota limit (default: '1.0') */
-  cpuLimit?: string
-  /** Custom environment variables (excluding secrets) */
-  env?: Record<string, string>
+import type { ChildProcess } from "node:child_process";
+
+export type SandboxFailureReason = 
+  | "COMPLETED" 
+  | "TIMEOUT" 
+  | "INFRA_FAILURE" 
+  | "INVALID_WORKSPACE";
+
+export interface SandboxExecutionOptions {
+  /** Traceable run ID for tool_invocations / audit_events */
+  runId?: string;
+  /** Absolute path to disposable workspace clone */
+  workspacePath: string;
+  /** Command to execute inside container */
+  command: string;
+  /** Max execution time in milliseconds (default: 60000ms) */
+  timeoutMs?: number;
+  /** Docker image (default: "node:22-bookworm-slim") */
+  image?: string;
+  /** Memory cap (default: "1g") */
+  memoryLimit?: string;
+  /** CPU cap (default: "1.0") */
+  cpuLimit?: string;
+  /** PID limit to prevent fork bombs (default: "100") */
+  pidsLimit?: string;
+  /** User to execute inside container (default: "node") */
+  user?: string;
+  /** Safe environment variables (filtered for secrets) */
+  env?: Record<string, string>;
 }
 
 export interface SandboxResult {
-  /** True if command finished with exit code 0 and did not time out */
-  success: boolean
-  /** Process exit code, or null if killed */
-  exitCode: number | null
-  /** Standard output captured from the container */
-  stdout: string
-  /** Standard error captured from the container */
-  stderr: string
-  /** Indicates whether the container was terminated due to timeout */
-  timedOut: boolean
-  /** Execution duration in milliseconds */
-  durationMs: number
+  success: boolean;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  durationMs: number;
+  reason: SandboxFailureReason;
+  error?: string;
 }
+
+export type SpawnFunction = (command: string, args: string[]) => ChildProcess;
